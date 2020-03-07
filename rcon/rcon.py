@@ -75,7 +75,7 @@ class Connection:
         # 1+ bytes body (0x00 terminated)
         # 1  byte 0x00
         buffer = b''
-        body = ''
+        body = b''
         # until we have a response
         while True:
             data = self.socket.recv(4096)
