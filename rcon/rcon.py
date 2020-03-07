@@ -49,7 +49,7 @@ class Connection:
     def _send_packet(self, type1, body):
         pid1 = self.counter.next()
         payload  = struct.pack('<ii', pid1, type1)
-        payload += body.encode()
+        payload += body.encode('ascii', errors='namereplace')
         payload += b'\x00\x00'
         size = len(payload)
         payload = struct.pack('<i', size) + payload
@@ -96,7 +96,7 @@ class Connection:
                     if pid == pid1:
                         # response to our original packet
                         # body starts from 3x 4 bytes and we skip the last 2 0x00
-                        body_chunk = buffer[12:size+4-2].decode()
+                        body_chunk = buffer[12:size+4-2]
                         # accumulate body until we received the whole response
                         body += body_chunk
                         # remove packet from buffer
@@ -107,7 +107,7 @@ class Connection:
                         buffer = buffer[size+4:]
                         # as we received a response to our invalid packet
                         # we are now sure to have received the whole response
-                        return body
+                        return body.decode('ascii')
                     elif pid == -1:
                         # minecraft responds with pid -1 to unauthenticated clients
                         return False
