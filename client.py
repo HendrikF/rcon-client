@@ -6,6 +6,8 @@ import os
 import rlcompleter
 import readline
 import re
+import itertools
+import collections
 
 from rcon.rcon import Connection
 
@@ -67,15 +69,12 @@ def completer(text, state):
 
     d = commands_learned
     for part in parts_before_cursor:
-        d = d.get(part, None)
-        if d is None:
-            break
-
-    if d is None:
-        # unknown command started before cursor
-        return None
+        d = d.get(part, {})
 
     parts_possible = list(filter(lambda part: part.startswith(text), d.keys()))
+
+    if not len(parts_possible):
+        debug('Unknown command - cannot complete')
 
     if len(parts_possible) == 1 and state == 0:
         readline.insert_text(' ')
@@ -85,13 +84,20 @@ def completer(text, state):
 
 readline.set_completer(completer)
 
-def peek_iter(iterable):
-    """ provides access to 2 following elements of an iterable
+def peek_iter(iterable, n):
+    """ provides access to n following elements of an iterable
 
-        for current, next1, next2 in peek_iter(iterable): ...
+        the last item will be followed by multiple None
+
+        for current, next1, next2 in peek_iter(iterable, 2): ...
     """
-    l = [*iterable, None, None]
-    return zip(l, l[1:], l[2:])
+    iterator = itertools.chain(iterable, [None]*n)
+    queue = collections.deque(maxlen=n+1)
+    for i in range(n):
+        queue.append(next(iterator))
+    for item in iterator:
+        queue.append(item)
+        yield tuple(queue)
 
 def learn_commands(help_output):
     """ populates the commands_learned dict
@@ -128,7 +134,7 @@ def learn_commands(help_output):
             d = commands_learned
             # use our peek_iter to have a look at the following parts
             # we need this to detect aliases
-            for part, next1, next2 in peek_iter(parts):
+            for part, next1, next2 in peek_iter(parts, 2):
                 if next1 == '->':
                     # alias
                     # create and get alias target, because it might not exist yet
