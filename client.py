@@ -3,9 +3,12 @@ import configparser
 import sys
 import atexit
 import os
+import rlcompleter
 import readline
 
 from rcon.rcon import Connection
+
+help_output = None
 
 # config
 
@@ -20,7 +23,7 @@ if len(config.read(config_file)) == 0:
     with open(config_file, 'w') as configfile:
         config.write(configfile)
 
-# readline + history
+# readline history
 
 hist_file = os.path.expanduser('~/.rcon_history')
 try:
@@ -35,6 +38,16 @@ def save_hist(prev_hist_len, hist_file):
     readline.set_history_length(1000)
     readline.append_history_file(new_hist_len - prev_hist_len, hist_file)
 atexit.register(save_hist, hist_len, hist_file)
+
+# auto completion
+
+readline.parse_and_bind('tab: complete')
+def completer(text, state):
+    if help_output is None: return None
+    commands = [command.strip('/') for command in help_output.split('\n')]
+    commands = list(filter(lambda command: command.startswith(text), commands))
+    return commands[state]
+readline.set_completer(completer)
 
 # connection
 
@@ -59,6 +72,8 @@ try:
         if command.startswith('help'):
             # insert line breaks into help output
             result = '\n/'.join(result.split('/'))
+        if command == 'help':
+            help_output = result
         print(result)
 except (EOFError, KeyboardInterrupt):
     print('')
