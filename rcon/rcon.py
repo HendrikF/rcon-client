@@ -107,7 +107,7 @@ class Connection:
                         buffer = buffer[size+4:]
                         # as we received a response to our invalid packet
                         # we are now sure to have received the whole response
-                        return body.decode('ascii')
+                        return body.decode()
                     elif pid == -1:
                         # minecraft responds with pid -1 to unauthenticated clients
                         return False

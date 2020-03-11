@@ -69,7 +69,20 @@ def completer(text, state):
 
     d = commands_learned
     for part in parts_before_cursor:
-        d = d.get(part, {})
+        # try to find part as a real command
+        tmp = d.get(part, None)
+        if tmp is None:
+            # part is not a real command
+            # look for placeholders that part could be substituted for
+            placeholders = list(filter(
+                lambda possibility: possibility.startswith('<') and possibility.endswith('>'),
+                d.keys()))
+            tmp = {}
+            # continue completion with all possible placeholders
+            for placeholder in placeholders:
+                for k, v in d[placeholder].items():
+                    tmp[k] = v
+        d = tmp
 
     parts_possible = list(filter(lambda part: part.startswith(text), d.keys()))
 
