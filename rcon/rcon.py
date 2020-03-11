@@ -49,7 +49,7 @@ class Connection:
     def _send_packet(self, type1, body):
         pid1 = self.counter.next()
         payload  = struct.pack('<ii', pid1, type1)
-        payload += body.encode('ascii', errors='namereplace')
+        payload += body.encode()
         payload += b'\x00\x00'
         size = len(payload)
         payload = struct.pack('<i', size) + payload
