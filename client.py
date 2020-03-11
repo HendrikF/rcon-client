@@ -249,6 +249,22 @@ def parse_nbt(text):
     tsize = shutil.get_terminal_size(fallback=(100, 30))
     pprint(nbts, width=tsize.columns)
 
+# fix newlines
+
+def fix_newlines(command, result):
+    """ add newlines to common commands
+
+        Minecrafts rcon is buggy and does not send any newlines
+    """
+    if (result.startswith('Unknown command') and
+            result != 'Unknown command or insufficient permissions'):
+        # insert newline before the command
+        result = re.sub('^Unknown command', '\g<0>\n', result)
+    elif command.startswith('help'):
+        # insert newlines in front of commands
+        result = re.sub('(.)/', '\g<1>\n/', result)
+    return result
+
 # connection
 
 host = config.get('rcon', 'host')
@@ -265,13 +281,12 @@ else:
 
 try:
     while True:
-        command = input('> ')
+        command = input('> ').rstrip()
         if command in ['q', 'quit', 'exit']:
             break
         result = c.execute(command)
+        result = fix_newlines(command, result)
         if command.startswith('help'):
-            # insert line breaks into help output
-            result = '\n/'.join(result.split('/'))
             learn_commands(result)
         elif (command.startswith('data get') or
                 command.startswith('execute') and
