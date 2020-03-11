@@ -1,4 +1,4 @@
-#!/usr/bin/python3
+#!/usr/bin/env python3
 import configparser
 import sys
 import atexit
@@ -8,6 +8,10 @@ import readline
 import re
 import itertools
 import collections
+from pprint import pprint
+import shutil
+
+import grako
 
 from rcon.rcon import Connection
 
@@ -165,6 +169,73 @@ def learn_commands(help_output):
                     d = d.setdefault(part, {})
     debug('knowledge', commands_learned)
 
+# nbt formatting
+
+nbt_grammar = '''
+@@grammar::NBT
+
+start = object $ ;
+
+object
+    =
+    | dict
+    | list
+    | value
+    ;
+
+dict =
+    | '{' '}' @:()
+    | '{' ','.{ @:pair }+ '}'
+    ;
+
+pair = key:identifier ':' val:object ;
+
+list = '[' ','.{ elements+:object } ']' ;
+
+value
+    =
+    | number
+    | string
+    ;
+
+identifier = /[a-zA-Z0-9]+/ ;
+
+number = /-?\d+(\.\d+)?[a-zA-Z]?/ ;
+
+string
+    =
+    | '"' @:/[^"]*/ '"'
+    | "'" @:/[^']*/ "'"
+    ;
+'''
+
+def parse_nbt(text):
+    text = re.sub('[^{}]*? has the following [^{}]*? data: ', '\n\g<0>', text)
+    lines = re.findall('^.* has the following .* data: (.*)$', text, flags=re.MULTILINE)
+    asts = list(map(lambda line: grako.parse(nbt_grammar, line), lines))
+
+    def transform(obj):
+        if obj is None:
+            return {}
+        elif isinstance(obj, list):
+            return {
+                item['key']: transform(item['val']) for item in obj
+            }
+        elif 'key' in obj:
+            return {
+                transform(obj['key']): transform(obj['val'])
+            }
+        elif 'elements' in obj:
+            return [
+                transform(item) for item in obj['elements']
+            ]
+        return obj
+
+    nbts = list(map(transform, asts))
+
+    tsize = shutil.get_terminal_size(fallback=(100, 30))
+    pprint(nbts, width=tsize.columns)
+
 # connection
 
 host = config.get('rcon', 'host')
@@ -189,6 +260,11 @@ try:
             # insert line breaks into help output
             result = '\n/'.join(result.split('/'))
             learn_commands(result)
+        elif (command.startswith('data get') or
+                command.startswith('execute') and
+                'run data get' in command):
+            parse_nbt(result)
+            continue
         print(result)
 except (EOFError, KeyboardInterrupt):
     print('')
